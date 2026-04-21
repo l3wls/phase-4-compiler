@@ -1,0 +1,178 @@
+Team Members:
+- Lewis Figueroa (nlw71)
+- Michael Walton (rog41)
+
+LEWIS'S IMPLEMENTATION
+----------------------------------
+
+Symbol Table Implementation
+- Implemented complete symbol table with scope tree structure in strtab.c and strtab.h
+- Core functions implemented:
+  * init_symbol_table() - Initializes global scope
+  * ST_insert() - Inserts symbols with duplicate detection
+  * ST_lookup() / ST_lookup_silent() - Symbol lookup with/without error messages
+  * ST_lookup_from_root() - Recursive search through entire scope tree for semantic analysis
+  * get_root_scope() - Returns root of scope tree
+  * new_scope() / up_scope() - Scope management when entering/exiting functions
+  * add_param() / connect_params() - Function parameter handling
+- Designed table_node structure for scope tree
+- Designed symEntry structure for symbol information
+- Designed param structure for function parameter lists
+
+Type Mismatch Checking
+- Implemented check_type_mismatch() function in strtab.c
+- Detects type mismatches in assignment statements
+- Traverses AST recursively to find ASSIGNSTMT nodes
+- Validates LHS and RHS types match
+
+Array Indexing Checking
+- Implemented check_array_indexing() function in strtab.c
+- Detects four types of array errors:
+  1. Non-array identifier used as array
+  2. Array indexed with non-integer expression
+  3. Array indexed with out-of-bounds constant
+  4. Zero-size array declaration
+- Uses scope-aware lookup to validate array properties
+
+Parser and AST Integration:
+- Modified parser.y to call new_scope() and up_scope() for function scope management
+- Modified parser.y to set array sizes in symbol table
+- Added lineno field to tree structure (tree.h) for accurate error line reporting
+- Added name field to tree structure for storing identifiers
+- Updated maketree() and maketreeWithVal() in tree.c to capture yylineno
+- Updated printAst() in tree.c to use node->name for identifiers
+- Modified driver.c to call init_symbol_table() and semantic_analysis()
+
+Created 2 custom test cases:
+- test_type_mismatch.mC
+- test_array.mC
+
+
+MICHAEL'S IMPLEMENTATION
+------------------------------------
+
+Multiply Declared Identifiers
+- Implemented detection in ST_insert() function
+- Checks if symbol already exists in current scope before insertion
+- Prints error when duplicate found
+
+Undeclared Variables
+- Implemented check_undeclared_vars_rec() function in strtab.c
+- Modified parser.y var rule to use ST_lookup_silent() and mark undeclared vars
+- Recursive AST traversal to find variables with val == -1
+
+Undeclared Functions
+- Implemented in parser.y funcCallExpr rule
+- Uses ST_lookup_silent() to check function existence
+- Validates symbol is actually a function type
+
+Function Call Mismatch
+- Implemented check_function_calls() function in strtab.c
+- Implemented helper functions:
+  * get_expr_type() - Determines type of any expression
+  * count_arg_nodes() - Counts arguments in function call
+  * check_arg_list_types() - Validates argument types match parameters
+  * collect_arg_exprs() - Extracts argument expressions from argList
+- Detects three error types:
+  1. Too few arguments
+  2. Too many arguments
+  3. Argument type mismatch
+
+Additional Implementation:
+- Constant expression evaluation (eval_const_int_expr) for array bounds checking
+- Expression type inference system (get_expr_type)
+- Zero-size array detection in parser.y
+- Scope name tracking (current_scope_name global variable)
+- unwrap_simple_rhs() helper function
+- Added global variables in parser.y for function tracking
+
+Integration and Testing
+- Tested all official test cases
+- Verified outputs match expected results
+- Integration of all semantic checks
+
+Created 2 custom test cases:
+- test/custom_array_const.mC
+- test/custom_scope_shadow.mC
+
+
+3. CUSTOM TEST CASES
+=====================
+
+Example 1: Type Mismatch Detection
+-----------------------------------
+File: test_type_mismatch.mC
+
+Source Code:
+int main() {
+    int x;
+    char c;
+    x = c;
+}
+
+Purpose:
+Tests that the semantic analyzer detects type mismatches in assignment 
+statements. An integer variable is assigned a character value, which 
+should trigger a type mismatch error.
+
+Expected Output:
+error: line 4: Type mismatch in assignment.
+Compilation finished.
+
+Testing Command:
+./obj/mcc test_type_mismatch.mC
+
+
+Example 2: Array Constant Expression Evaluation
+-----------------------------------------------
+File: test/custom_array_const.mC
+
+Source Code:
+char main() {
+    int arr[5];
+    arr[2 + 4] = 1;
+    return 0;
+}
+
+Purpose:
+Tests that the semantic analyzer can evaluate constant expressions at 
+compile time for array indexing. The expression "2 + 4" evaluates to 6, 
+which exceeds the array bound of 5. This validates the constant expression 
+evaluator (eval_const_int_expr function) correctly computes arithmetic 
+expressions and the array bounds checker properly detects out-of-bounds access.
+
+Expected Output:
+error: line 3: Statically sized array indexed with constant, out-of-bounds expression.
+Compilation finished.
+
+Testing Command:
+./obj/mcc test/custom_array_const.mC
+
+
+4. COMPILATION INSTRUCTIONS
+============================
+
+The provided Makefile is used without modification.
+
+To compile the project:
+    make clean && make
+
+To run the compiler on a test file:
+    ./obj/mcc <input_file.mC>
+
+To view the AST:
+    ./obj/mcc --ast <input_file.mC>
+
+To view the symbol table:
+    ./obj/mcc --sym <input_file.mC>
+
+To run all official test cases:
+    ./obj/mcc test/cases/testArrayIndex.mC
+    ./obj/mcc test/cases/testTypeMismatch.mC
+    ./obj/mcc test/cases/testMulDeclVars.mC
+    ./obj/mcc test/cases/testMulDeclFunc.mC
+    ./obj/mcc test/cases/testUnDeclVars.mC
+    ./obj/mcc test/cases/testUnDeclFunc.mC
+    ./obj/mcc test/cases/testFuncCallMatch.mC
+
+All test outputs match the expected outputs in test/exp/ directory.
