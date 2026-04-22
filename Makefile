@@ -1,13 +1,14 @@
 CC = gcc
 CFLAGS = -I./src -std=gnu99 -g
 
-LEX=lex
+LEX=flex
 
 YACC=yacc
-YFLAGS=-v -d -b obj/y
+YFLAGS=-d
+
 GRAMMAR=parser.y
 
-obj/mcc: obj/lex.yy.o obj/y.tab.o obj/tree.o obj/driver.o obj/strtab.o | obj
+obj/mcc: obj/lex.yy.o obj/y.tab.o obj/tree.o obj/driver.o obj/strtab.o obj/codegen.o | obj
 	$(CC) $(CFLAGS) -o $@ $^ -ll
 
 obj/y.tab.o: obj/y.tab.c | obj
@@ -16,11 +17,11 @@ obj/y.tab.o: obj/y.tab.c | obj
 obj/lex.yy.o: obj/lex.yy.c | obj
 	$(CC) $(CFLAGS) -c $< -o $@
 
-obj/y.tab.h obj/y.tab.c: src/$(GRAMMAR)  src/tree.h | obj
-	$(YACC) $(YFLAGS) $<
+obj/y.tab.h obj/y.tab.c: src/$(GRAMMAR) src/tree.h | obj
+	cd obj && $(YACC) $(YFLAGS) -b y ../src/$(GRAMMAR)
 
 obj/lex.yy.c: src/scanner.l obj/y.tab.h | obj
-	$(LEX) -o $@ $<
+	flex -o obj/lex.yy.c src/scanner.l
 
 obj/tree.o: src/tree.c src/tree.h | obj
 	$(CC)  $(CFLAGS) -c $< -o $@
@@ -29,6 +30,9 @@ obj/driver.o: src/driver.c src/tree.h obj/y.tab.h | obj
 	$(CC)  $(CFLAGS) -c $< -o $@
 
 obj/strtab.o: src/strtab.c src/strtab.h obj/y.tab.h | obj
+	$(CC)  $(CFLAGS) -c $< -o $@
+
+obj/codegen.o: src/codegen.c src/codegen.h src/tree.h src/strtab.h | obj
 	$(CC)  $(CFLAGS) -c $< -o $@
 
 .PHONY: clean test objdir
