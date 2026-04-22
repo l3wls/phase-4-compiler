@@ -230,7 +230,7 @@ void codegen_statement_list(tree *node, FILE *output)
     }
 }
 
-// Generate statement (LEWIS + MICHAEL)
+// Generate statement
 void codegen_statement(tree *node, FILE *output)
 {
     if (node == NULL)
@@ -491,13 +491,13 @@ void codegen_var(tree *node, FILE *output)
     }
 }
 
-// MICHAEL's stubs - Implementation required for control flow constructs
+// Implementation Needed required for control flow constructs
 void codegen_conditional(tree *node, FILE *output)
 {
-    fprintf(output, "# Conditional (TODO: Michael)\n");
+    fprintf(output, "# Conditional (TODO:)\n");
 }
 
 void codegen_loop(tree *node, FILE *output)
 {
-    fprintf(output, "# Loop (TODO: Michael)\n");
+    fprintf(output, "# Loop (TODO:)\n");
 }
