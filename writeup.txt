@@ -2,154 +2,91 @@ Team Members:
 - Lewis Figueroa (nlw71)
 - Michael Walton (rog41)
 
+Course: CS4318 - Compiler Construction
+
 LEWIS'S IMPLEMENTATION
 ----------------------------------
 
-Symbol Table Implementation
-- Implemented complete symbol table with scope tree structure in strtab.c and strtab.h
-- Core functions implemented:
-  * init_symbol_table() - Initializes global scope
-  * ST_insert() - Inserts symbols with duplicate detection
-  * ST_lookup() / ST_lookup_silent() - Symbol lookup with/without error messages
-  * ST_lookup_from_root() - Recursive search through entire scope tree for semantic analysis
-  * get_root_scope() - Returns root of scope tree
-  * new_scope() / up_scope() - Scope management when entering/exiting functions
-  * add_param() / connect_params() - Function parameter handling
-- Designed table_node structure for scope tree
-- Designed symEntry structure for symbol information
-- Designed param structure for function parameter lists
+Code Generator Foundation (codegen.c / codegen.h)
+- Created codegen.h with all function declarations for the code generator
+- Created codegen.c with the core MIPS assembly generation framework
+- Implemented variable tracking system (var_info linked list) to manage
+  global variables and arrays for the data section
+- Implemented codegen_program() - main entry point, generates file header,
+  data section, and text section
+- Implemented codegen_data_section() - emits .data labels for all declared
+  variables and arrays (.word for scalars, .space for arrays)
+- Implemented collect_variables() - traverses AST to find all variable
+  declarations before code generation
 
-Type Mismatch Checking
-- Implemented check_type_mismatch() function in strtab.c
-- Detects type mismatches in assignment statements
-- Traverses AST recursively to find ASSIGNSTMT nodes
-- Validates LHS and RHS types match
+Expression Code Generation
+- Implemented codegen_expression() - handles relational operators
+  (<, <=, >, >=, ==, !=) using MIPS pseudo-instructions (slt, sle, sgt,
+  sge, seq, sne)
+- Implemented codegen_addExpr() - handles addition and subtraction
+- Implemented codegen_term() - handles multiplication (mul) and
+  division (div/mflo)
+- Implemented codegen_factor() - handles integer constants (li),
+  character constants (li with ASCII value), variables, and
+  parenthesized expressions
+- Implemented codegen_var() - loads scalar variables (lw) and
+  array elements (sll + la + add + lw for address calculation)
 
-Array Indexing Checking
-- Implemented check_array_indexing() function in strtab.c
-- Detects four types of array errors:
-  1. Non-array identifier used as array
-  2. Array indexed with non-integer expression
-  3. Array indexed with out-of-bounds constant
-  4. Zero-size array declaration
-- Uses scope-aware lookup to validate array properties
+Assignment Statement Code Generation
+- Implemented codegen_assignment() - handles simple variable assignment
+  (sw) and array element assignment (index * 4 + base address)
 
-Parser and AST Integration:
-- Modified parser.y to call new_scope() and up_scope() for function scope management
-- Modified parser.y to set array sizes in symbol table
-- Added lineno field to tree structure (tree.h) for accurate error line reporting
-- Added name field to tree structure for storing identifiers
-- Updated maketree() and maketreeWithVal() in tree.c to capture yylineno
-- Updated printAst() in tree.c to use node->name for identifiers
-- Modified driver.c to call init_symbol_table() and semantic_analysis()
-
-Created 2 custom test cases:
-- test_type_mismatch.mC
-- test_array.mC
+Driver and Makefile Updates
+- Updated driver.c to open a .s output file and call codegen_program()
+  after semantic analysis
+- Updated Makefile to compile codegen.o and link it into the binary
 
 
 MICHAEL'S IMPLEMENTATION
 ------------------------------------
 
-Multiply Declared Identifiers
-- Implemented detection in ST_insert() function
-- Checks if symbol already exists in current scope before insertion
-- Prints error when duplicate found
+Control Flow Code Generation
+- Implemented codegen_conditional() - generates MIPS assembly for
+  if/else statements using unique labels
+  * Evaluates condition into $t0
+  * Uses beq $t0, $zero to branch around then-block
+  * Emits j end_label to skip else-block when present
+  * Handles both if-only and if/else forms
+- Implemented codegen_loop() - generates MIPS assembly for while loops
+  * Emits loop_start label before condition evaluation
+  * Uses beq $t0, $zero to exit loop when condition is false
+  * Jumps back to loop_start after body
+- Implemented codegen_for() - generates MIPS assembly for for loops
+  by desugaring into init + while loop structure
+  * Emits init assignment before loop label
+  * Evaluates condition at top of loop
+  * Emits body followed by update assignment before jumping back
+- Implemented codegen_statement_node() - helper that unwraps STATEMENT
+  wrapper nodes so control flow bodies dispatch correctly
+- Added COMPOUNDSTMT handling to codegen_statement() so { } blocks
+  inside if/else/while/for bodies work correctly
 
-Undeclared Variables
-- Implemented check_undeclared_vars_rec() function in strtab.c
-- Modified parser.y var rule to use ST_lookup_silent() and mark undeclared vars
-- Recursive AST traversal to find variables with val == -1
+For Loop Language Support
+- Added KWD_FOR token to scanner.l
+- Added forStmt grammar rule to parser.y parsing
+  for(var = expr; expr; var = expr) statement
+- Added FORSTMT node kind to tree.h enum
+- Wired forStmt into the statement rule in parser.y
 
-Undeclared Functions
-- Implemented in parser.y funcCallExpr rule
-- Uses ST_lookup_silent() to check function existence
-- Validates symbol is actually a function type
+Register Clobbering Fix
+- Fixed a bug in expression code generation where nested expressions
+  would overwrite intermediate values stored in $t1
+- Replaced move $t1, $t0 pattern with stack push/pop (addi $sp / sw / lw)
+  in codegen_expression(), codegen_addExpr(), and codegen_term()
+  so left operands are preserved across recursive right operand evaluation
 
-Function Call Mismatch
-- Implemented check_function_calls() function in strtab.c
-- Implemented helper functions:
-  * get_expr_type() - Determines type of any expression
-  * count_arg_nodes() - Counts arguments in function call
-  * check_arg_list_types() - Validates argument types match parameters
-  * collect_arg_exprs() - Extracts argument expressions from argList
-- Detects three error types:
-  1. Too few arguments
-  2. Too many arguments
-  3. Argument type mismatch
-
-Additional Implementation:
-- Constant expression evaluation (eval_const_int_expr) for array bounds checking
-- Expression type inference system (get_expr_type)
-- Zero-size array detection in parser.y
-- Scope name tracking (current_scope_name global variable)
-- unwrap_simple_rhs() helper function
-- Added global variables in parser.y for function tracking
-
-Integration and Testing
-- Tested all official test cases
-- Verified outputs match expected results
-- Integration of all semantic checks
-
-Created 2 custom test cases:
-- test/custom_array_const.mC
-- test/custom_scope_shadow.mC
+Testing and Integration
+- Verified all 5 sample tests compile and generate correct MIPS assembly
+- Confirmed all 7 semantic analysis tests still pass after phase 4 changes
+- Fixed driver.c to suppress extra output that broke test suite comparisons
 
 
-3. CUSTOM TEST CASES
-=====================
-
-Example 1: Type Mismatch Detection
------------------------------------
-File: test_type_mismatch.mC
-
-Source Code:
-int main() {
-    int x;
-    char c;
-    x = c;
-}
-
-Purpose:
-Tests that the semantic analyzer detects type mismatches in assignment 
-statements. An integer variable is assigned a character value, which 
-should trigger a type mismatch error.
-
-Expected Output:
-error: line 4: Type mismatch in assignment.
-Compilation finished.
-
-Testing Command:
-./obj/mcc test_type_mismatch.mC
-
-
-Example 2: Array Constant Expression Evaluation
------------------------------------------------
-File: test/custom_array_const.mC
-
-Source Code:
-char main() {
-    int arr[5];
-    arr[2 + 4] = 1;
-    return 0;
-}
-
-Purpose:
-Tests that the semantic analyzer can evaluate constant expressions at 
-compile time for array indexing. The expression "2 + 4" evaluates to 6, 
-which exceeds the array bound of 5. This validates the constant expression 
-evaluator (eval_const_int_expr function) correctly computes arithmetic 
-expressions and the array bounds checker properly detects out-of-bounds access.
-
-Expected Output:
-error: line 3: Statically sized array indexed with constant, out-of-bounds expression.
-Compilation finished.
-
-Testing Command:
-./obj/mcc test/custom_array_const.mC
-
-
-4. COMPILATION INSTRUCTIONS
+3. COMPILATION INSTRUCTIONS
 ============================
 
 The provided Makefile is used without modification.
@@ -157,22 +94,12 @@ The provided Makefile is used without modification.
 To compile the project:
     make clean && make
 
-To run the compiler on a test file:
+To run the compiler on a source file:
     ./obj/mcc <input_file.mC>
 
-To view the AST:
-    ./obj/mcc --ast <input_file.mC>
-
-To view the symbol table:
-    ./obj/mcc --sym <input_file.mC>
-
-To run all official test cases:
-    ./obj/mcc test/cases/testArrayIndex.mC
-    ./obj/mcc test/cases/testTypeMismatch.mC
-    ./obj/mcc test/cases/testMulDeclVars.mC
-    ./obj/mcc test/cases/testMulDeclFunc.mC
-    ./obj/mcc test/cases/testUnDeclVars.mC
-    ./obj/mcc test/cases/testUnDeclFunc.mC
-    ./obj/mcc test/cases/testFuncCallMatch.mC
-
-All test outputs match the expected outputs in test/exp/ directory.
+To generate assembly for all sample tests:
+    ./obj/mcc Sample_Test/test1.mC
+    ./obj/mcc Sample_Test/test2.mC
+    ./obj/mcc Sample_Test/test3.mC
+    ./obj/mcc Sample_Test/test4.mC
+    ./obj/mcc Sample_Test/test5.mC
