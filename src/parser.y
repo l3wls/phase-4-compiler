@@ -35,7 +35,7 @@ int current_function_param_count = 0;
 %token <value> INTCONST CHARCONST
 
 /* Keywords */
-%token KWD_IF KWD_ELSE KWD_WHILE 
+%token KWD_IF KWD_ELSE KWD_WHILE KWD_FOR
 %token KWD_INT KWD_CHAR 
 %token KWD_RETURN KWD_VOID
 
@@ -59,7 +59,7 @@ int current_function_param_count = 0;
 %type <node> program declList decl varDecl typeSpecifier funDecl
 %type <node> formalDeclList formalDecl funBody localDeclList
 %type <node> statementList statement compoundStmt assignStmt
-%type <node> condStmt loopStmt returnStmt
+%type <node> condStmt loopStmt forStmt returnStmt
 %type <node> var expression addExpr term factor
 %type <node> funcCallExpr argList relop addop mulop
 %type <node> funcTypeName arrayDecl
@@ -341,6 +341,12 @@ statement : assignStmt
         addChild(stmtNode, $1);
         $$ = stmtNode;
     }
+    | forStmt
+    {
+        tree* stmtNode = maketree(STATEMENT);
+        addChild(stmtNode, $1);
+        $$ = stmtNode;
+    }
     | returnStmt
     {
         tree* stmtNode = maketree(STATEMENT);
@@ -395,6 +401,21 @@ loopStmt : KWD_WHILE LPAREN expression RPAREN statement
         addChild(loopNode, $3);
         addChild(loopNode, $5);
         $$ = loopNode;
+    }
+    ;
+
+forStmt : KWD_FOR LPAREN var OPER_ASGN expression SEMICLN expression SEMICLN var OPER_ASGN expression RPAREN statement
+    {
+        /* for(init_var = init_expr; condition; update_var = update_expr) body */
+        /* children: [0]=init_var [1]=init_expr [2]=condition [3]=update_var [4]=update_expr [5]=body */
+        tree* forNode = maketree(FORSTMT);
+        addChild(forNode, $3);   /* init var */
+        addChild(forNode, $5);   /* init expr */
+        addChild(forNode, $7);   /* condition */
+        addChild(forNode, $9);   /* update var */
+        addChild(forNode, $11);  /* update expr */
+        addChild(forNode, $13);  /* body */
+        $$ = forNode;
     }
     ;
 

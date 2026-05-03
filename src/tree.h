@@ -22,6 +22,7 @@ enum nodeKind
       ASSIGNSTMT,
       CONDSTMT,
       LOOPSTMT,
+      FORSTMT,
       RETURNSTMT,
       EXPRESSION,
       RELOP,

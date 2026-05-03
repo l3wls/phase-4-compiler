@@ -148,6 +148,7 @@ illidentifier   [0-9]+[a-zA-Z][a-zA-Z0-9]*
 "if"      { updateCol(); return KWD_IF; }
 "else"    { updateCol(); return KWD_ELSE; }
 "while"   { updateCol(); return KWD_WHILE; }
+"for"     { updateCol(); return KWD_FOR; }
 "int"     { updateCol(); return KWD_INT; }
 "char"    { updateCol(); return KWD_CHAR; }
 "return"  { updateCol(); return KWD_RETURN; }

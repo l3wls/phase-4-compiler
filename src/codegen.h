@@ -26,6 +26,7 @@ void codegen_assignment(tree *node, FILE *output);
 void codegen_statement_node(tree *node, FILE *output);
 void codegen_conditional(tree *node, FILE *output);
 void codegen_loop(tree *node, FILE *output);
+void codegen_for(tree *node, FILE *output);
 
 // Data section generation
 void codegen_data_section(tree *ast, FILE *output);

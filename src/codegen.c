@@ -258,6 +258,9 @@ void codegen_statement(tree *node, FILE *output)
     case LOOPSTMT:
         codegen_loop(node, output);
         break;
+    case FORSTMT:
+        codegen_for(node, output);
+        break;
     case RETURNSTMT:
         if (node->numChildren > 0)
         {
@@ -591,6 +594,51 @@ void codegen_loop(tree *node, FILE *output)
     codegen_statement_node(getChild(node, 1), output);
 
     // Jump back to start
+    fprintf(output, "j %s\n", loop_start);
+    fprintf(output, "%s:\n", loop_end);
+
+    free(loop_start);
+    free(loop_end);
+}
+
+// Generate for loop: for (var = init; condition; var = update) stmt
+// Desugars to: init; while(condition) { body; update; }
+// FORSTMT children: [0]=init_var [1]=init_expr [2]=condition
+//                   [3]=update_var [4]=update_expr [5]=body-STATEMENT
+void codegen_for(tree *node, FILE *output)
+{
+    if (node == NULL)
+        return;
+
+    char *loop_start = generate_label();
+    char *loop_end   = generate_label();
+
+    fprintf(output, "\n# for loop\n");
+
+    // Emit init: init_var = init_expr
+    fprintf(output, "# for init\n");
+    codegen_expression(getChild(node, 1), output);
+    tree *init_var = getChild(node, 0);
+    tree *init_id  = getChild(init_var, 0);
+    fprintf(output, "sw $t0, %s\n", init_id->name);
+
+    // Loop start - evaluate condition
+    fprintf(output, "%s:\n", loop_start);
+    fprintf(output, "# for condition\n");
+    codegen_expression(getChild(node, 2), output);
+    fprintf(output, "beq $t0, $zero, %s\n", loop_end);
+
+    // Loop body
+    fprintf(output, "# for body\n");
+    codegen_statement_node(getChild(node, 5), output);
+
+    // Update: update_var = update_expr
+    fprintf(output, "# for update\n");
+    codegen_expression(getChild(node, 4), output);
+    tree *upd_var = getChild(node, 3);
+    tree *upd_id  = getChild(upd_var, 0);
+    fprintf(output, "sw $t0, %s\n", upd_id->name);
+
     fprintf(output, "j %s\n", loop_start);
     fprintf(output, "%s:\n", loop_end);
 
