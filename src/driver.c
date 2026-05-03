@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <tree.h>
-#include <strtab.h>
+#include "tree.h"
+#include "strtab.h"
 #include "codegen.h"
 
 extern FILE *yyin;
@@ -71,7 +71,6 @@ int main(int argc, char *argv[])
         {
             codegen_program(ast, output);
             fclose(output);
-            printf("Assembly code generated: %s\n\n", output_filename);
         }
 
         if (p_ast)

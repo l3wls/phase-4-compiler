@@ -23,6 +23,7 @@ void codegen_var(tree *node, FILE *output);
 void codegen_assignment(tree *node, FILE *output);
 
 // functions - Control Flow
+void codegen_statement_node(tree *node, FILE *output);
 void codegen_conditional(tree *node, FILE *output);
 void codegen_loop(tree *node, FILE *output);
 

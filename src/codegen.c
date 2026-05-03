@@ -230,6 +230,17 @@ void codegen_statement_list(tree *node, FILE *output)
     }
 }
 
+/* Helper: unwrap a STATEMENT node and dispatch to the inner node */
+void codegen_statement_node(tree *node, FILE *output)
+{
+    if (node == NULL)
+        return;
+    if (node->nodeKind == STATEMENT && node->numChildren > 0)
+        codegen_statement(getChild(node, 0), output);
+    else
+        codegen_statement(node, output);
+}
+
 // Generate statement
 void codegen_statement(tree *node, FILE *output)
 {
@@ -250,8 +261,15 @@ void codegen_statement(tree *node, FILE *output)
     case RETURNSTMT:
         if (node->numChildren > 0)
         {
+            fprintf(output, "\n# Return\\n");
             codegen_expression(getChild(node, 0), output);
+            fprintf(output, "move $v0, $t0\n");
         }
+        break;
+    case COMPOUNDSTMT:
+        /* A compound statement is a block: { stmtList } */
+        if (node->numChildren > 0)
+            codegen_statement_list(getChild(node, 0), output);
         break;
     }
 }
@@ -326,11 +344,17 @@ void codegen_expression(tree *node, FILE *output)
             tree *op = getChild(node, 1);
             tree *right = getChild(node, 2);
 
+            // Evaluate left, spill to stack so inner evals can't clobber it
             codegen_expression(left, output);
-            fprintf(output, "move $t1, $t0\n");
+            fprintf(output, "addi $sp, $sp, -4\n");
+            fprintf(output, "sw $t0, 0($sp)\n");
 
             codegen_addExpr(right, output);
             fprintf(output, "move $t2, $t0\n");
+
+            // Restore left operand
+            fprintf(output, "lw $t1, 0($sp)\n");
+            fprintf(output, "addi $sp, $sp, 4\n");
 
             switch (op->val)
             {
@@ -375,11 +399,17 @@ void codegen_addExpr(tree *node, FILE *output)
             tree *op = getChild(node, 1);
             tree *right = getChild(node, 2);
 
+            // Evaluate left, spill to stack
             codegen_addExpr(left, output);
-            fprintf(output, "move $t1, $t0\n");
+            fprintf(output, "addi $sp, $sp, -4\n");
+            fprintf(output, "sw $t0, 0($sp)\n");
 
             codegen_term(right, output);
             fprintf(output, "move $t2, $t0\n");
+
+            // Restore left operand
+            fprintf(output, "lw $t1, 0($sp)\n");
+            fprintf(output, "addi $sp, $sp, 4\n");
 
             if (op->val == 0)
             {
@@ -411,11 +441,17 @@ void codegen_term(tree *node, FILE *output)
             tree *op = getChild(node, 1);
             tree *right = getChild(node, 2);
 
+            // Evaluate left, spill to stack
             codegen_term(left, output);
-            fprintf(output, "move $t1, $t0\n");
+            fprintf(output, "addi $sp, $sp, -4\n");
+            fprintf(output, "sw $t0, 0($sp)\n");
 
             codegen_factor(right, output);
             fprintf(output, "move $t2, $t0\n");
+
+            // Restore left operand
+            fprintf(output, "lw $t1, 0($sp)\n");
+            fprintf(output, "addi $sp, $sp, 4\n");
 
             if (op->val == 2)
             { // MUL
@@ -491,13 +527,73 @@ void codegen_var(tree *node, FILE *output)
     }
 }
 
-// Implementation Needed required for control flow constructs
+// Generate conditional: if (expr) stmt [else stmt]
+// CONDSTMT children:  [0]=expression  [1]=then-STATEMENT  [2]=else-STATEMENT (optional)
 void codegen_conditional(tree *node, FILE *output)
 {
-    fprintf(output, "# Conditional (TODO:)\n");
+    if (node == NULL)
+        return;
+
+    char *else_label = generate_label();
+    char *end_label  = generate_label();
+    int has_else     = (node->numChildren == 3);
+
+    fprintf(output, "\n# if statement\n");
+
+    // Evaluate condition -> $t0
+    codegen_expression(getChild(node, 0), output);
+
+    // Branch to else (or end) when condition is zero (false)
+    if (has_else)
+        fprintf(output, "beq $t0, $zero, %s\n", else_label);
+    else
+        fprintf(output, "beq $t0, $zero, %s\n", end_label);
+
+    // Then-branch
+    fprintf(output, "# then branch\n");
+    codegen_statement_node(getChild(node, 1), output);
+
+    if (has_else)
+    {
+        fprintf(output, "j %s\n", end_label);
+        fprintf(output, "%s:\n", else_label);
+        fprintf(output, "# else branch\n");
+        codegen_statement_node(getChild(node, 2), output);
+    }
+
+    fprintf(output, "%s:\n", end_label);
+
+    free(else_label);
+    free(end_label);
 }
 
+// Generate while loop: while (expr) stmt
+// LOOPSTMT children:  [0]=expression  [1]=body-STATEMENT
 void codegen_loop(tree *node, FILE *output)
 {
-    fprintf(output, "# Loop (TODO:)\n");
+    if (node == NULL)
+        return;
+
+    char *loop_start = generate_label();
+    char *loop_end   = generate_label();
+
+    fprintf(output, "\n# while loop\n");
+    fprintf(output, "%s:\n", loop_start);
+
+    // Evaluate condition -> $t0
+    codegen_expression(getChild(node, 0), output);
+
+    // Exit loop when condition is zero (false)
+    fprintf(output, "beq $t0, $zero, %s\n", loop_end);
+
+    // Loop body
+    fprintf(output, "# loop body\n");
+    codegen_statement_node(getChild(node, 1), output);
+
+    // Jump back to start
+    fprintf(output, "j %s\n", loop_start);
+    fprintf(output, "%s:\n", loop_end);
+
+    free(loop_start);
+    free(loop_end);
 }
